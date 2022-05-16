@@ -91,30 +91,10 @@ func aslice(mm *mmap.MMap, length, cap int, slicePtr interface{}) error {
 	ptr := val.Pointer()
 	uptr := unsafe.Pointer(ptr)
 	shead := (*reflect.SliceHeader)(uptr)
-	// shead := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
-	// shead, ok := (unsafe.Pointer(ptr)).(*reflect.SliceHeader)
-	// if !ok {
-	// 	return fmt.Errorf("could not get slice header from slice ptr %T", slicePtr)
-	// }
 	shead.Len = length
 	shead.Cap = cap
 	shead.Data = mhead.Data
 	return nil
-}
-
-func sheader(slicePtr interface{}) (*reflect.SliceHeader, error) {
-	val := reflect.ValueOf(slicePtr)
-	ptr := val.Pointer()
-	shead := (*reflect.SliceHeader)(unsafe.Pointer(ptr))
-	// if !ok {
-	// 	return fmt.Errorf("could not get slice header from slice ptr %T", slicePtr)
-	// }
-	return shead, nil
-	// shead, ok := slicePtr.(*reflect.SliceHeader)
-	// if !ok {
-	// 	return nil, fmt.Errorf("could not get slice header from slice ptr %T", slicePtr)
-	// }
-	// return shead, nil
 }
 
 func New[T any](filename string, length, cap int) ([]T, Flusher, error) {
@@ -179,6 +159,19 @@ func NewAny(filename string, length, cap int, slicePtr interface{}) (Flusher, er
 
 // OpenAny takes a pointer to an empty slice and converts it into a mmap'd slice of the requested capacity
 func OpenAny(filename string, length, cap int, slicePtr interface{}) (Flusher, error) {
+	fs, err := os.Stat(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot stat %q -- %w", filename, err)
+	}
+	fileSize := int(fs.Size())
+
+	if cap == 0 {
+		cap = fileSize / elemSize(slicePtr)
+		if length == 0 {
+			length = cap
+		}
+	}
+
 	// TODO: return error?
 	if length > cap {
 		cap = length
@@ -198,19 +191,25 @@ func OpenAny(filename string, length, cap int, slicePtr interface{}) (Flusher, e
 
 // Open returns a mmap-backed slice of type T
 func Open[T any](filename string, length, cap int) ([]T, error) {
+	var one T
+	size := int64(unsafe.Sizeof(one))
+
+	fs, err := os.Stat(filename)
+	if err != nil {
+		return nil, fmt.Errorf("cannot stat %q -- %w", filename, err)
+	}
+	fileSize := fs.Size()
+
+	if cap == 0 {
+		cap = int(fileSize / size)
+	}
 	if length > cap {
 		log.Printf("adjusting cap %d to match len %d", cap, length)
 		cap = length
 	}
-	var one T
-	size := int64(unsafe.Sizeof(one))
-	// log.Printf("element size: %d", size)
-	fs, err := os.Stat(filename)
-	if err != nil {
-		return nil, fmt.Errorf("can't open file %q -- %w", filename, err)
-	}
+
 	need := int64(cap * int(size))
-	have := fs.Size() / size
+	have := fileSize / size
 	// log.Printf("file size (%d) is %d -- need %d", fs.Size(), have, need)
 	if need > fs.Size() {
 		return nil, fmt.Errorf("file holds %d elements but cap is less at %d", have, size)

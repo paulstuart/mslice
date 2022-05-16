@@ -143,7 +143,6 @@ func TestNewAny(t *testing.T) {
 
 	t.Logf("iterate saved file:")
 
-	//m = []testType{}
 	h, err = OpenAny(testFile, testLen, testLen, &m)
 	if err != nil {
 		t.Fatalf("can't recycle: %v", err)
@@ -154,12 +153,33 @@ func TestNewAny(t *testing.T) {
 	}
 }
 
-func TestASlice(t *testing.T) {
+func TestNewAnyAuto(t *testing.T) {
+	prepDir(t)
 	m := []testType{}
-	h, err := sheader(&m)
-	//	h, err := aslice(&m)
+	h, err := NewAny(testFile, testLen, testLen, &m)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("HEAD: %+v", h)
+	for i := 0; i < len(m); i++ {
+		plus := int64(i + 1)
+		m[i] = testType{plus * 100, plus}
+	}
+	t.Logf("size: %d", len(m))
+	for i, v := range m {
+		t.Logf("%02d: %v\n", i, v)
+	}
+	if err := h.Close(); err != nil {
+		t.Fatalf("bummer: %v", err)
+	}
+
+	t.Logf("iterate saved file:")
+
+	h, err = OpenAny(testFile, 0, 0, &m)
+	if err != nil {
+		t.Fatalf("can't recycle: %v", err)
+	}
+
+	for i, v := range m {
+		t.Logf("%02d: %v\n", i, v)
+	}
 }
