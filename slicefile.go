@@ -38,12 +38,16 @@ func (sf *sfile) Len() int {
 	return sf.len
 }
 
+// ErrAppend is when we go past the mmap limit
+// TODO: make it extendable
+var ErrAppend = fmt.Errorf("append exceeds size")
+
 // Append objects to the slice
 func (sf *sfile) Append(objs ...Encoder) error {
 	add := len(objs)
 	want := sf.len + add
 	if want > sf.cap {
-		return fmt.Errorf("requested size %d exceeds cap %d with %d appended", want, sf.cap, add)
+		return fmt.Errorf("size:%d cap:%d add:%d -- %w", want, sf.cap, add, ErrAppend)
 	}
 	for i, obj := range objs {
 		if err := sf.b.Encode(sf.len*obj.Size(), obj); err != nil {

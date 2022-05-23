@@ -147,6 +147,9 @@ func (bf *bfile) Decode(idx int, obj Decoder) error {
 }
 
 func NewByteFile(filename string, length int64) (Byter, error) {
+	if err := emptyFile(filename, length); err != nil {
+		return nil, err
+	}
 	if err := os.Truncate(filename, length); err != nil {
 		return nil, fmt.Errorf("truncate failure: %w", err)
 	}
